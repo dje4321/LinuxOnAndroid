@@ -1,0 +1,93 @@
+Few things are needed
+	* Linux computer that can run debootstrap
+	* A 1GB or larger microsd card. 4GB or larger microsd card for a vnc setup. Microsd card needs to be formatted as ext4
+	* Rooted android phone that has a microsd card slot
+	* Internet Connection
+	* A root shell to the device. Can be done via adb shell, ssh app, or anything else
+
+Insert the microsd card into the computer and mount it. /target will be the mountpoint used in this guide
+Run debootstrap as root. wheezy seems to be the only version that works. All other version have issues with connecting to the internet
+	# debootstrap --arch=armhf --variant=minbase --foreign  wheezy /target http://httpredir.debian.org/debian
+Verify that /target/debootstrap/debootstrap exsists. debootstrap acts wierd sometimes and this seems to be a good sanity check
+Unmount the micro sdcard and insert it into the phone
+
+Android will complain about the micro sdcard being corrupt. You can safley ignore this message. 
+Remount root as readwrite, make a directory to mount the sdcard too, and remount root as ro
+	# export ROOT=/target
+	# mount -o remount,rw /
+	# mkdir $ROOT
+	# mount -o remount,ro /
+Mount the sdcard as ext4 with the proper permissions. sdcard location will vary from device to device.
+	# mount -t ext4 -o exec,suid,dev /dev/block/mmcblk1p1 $ROOT
+	
+Setup the envrioment to run the second stage of debootstrap and get some basic packages installed
+	# mount -o bind /dev $ROOT/dev
+	# mount -t devpts devpts $ROOT/dev/pts
+	# mount -t proc proc $ROOT/proc
+	# mount -t sysfs sysfs $ROOT/sys
+	# mount -t tmpfs tmpfs $ROOT/tmp
+	# chroot $ROOT /bin/bash -l
+	(chroot)# unset LD_PRELOAD TMPDIR
+	(chroot)# export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+	(chroot)# /debootstrap/debootstrap --second-stage
+Debootstrap will do its thing and you will have a minimal base install of debian armhf
+
+Setup the root account with the correct permissions so that android will hand off networking properly. There are more groups in android for permissions control. Check the android source code and google for more info
+	(chroot)# groupadd -g 3001 aid_bt
+	(chroot)# groupadd -g 3002 aid_bt_net
+	(chroot)# groupadd -g 3003 aid_inet
+	(chroot)# groupadd -g 3004 aid_net_raw
+	(chroot)# groupadd -g 3005 aid_admin
+	(chroot)# usermod -a -G aid_bt,aid_bt_net,aid_inet,aid_net_raw,aid_admin root
+Install any needed packages now before we install SElinux. Waiting to install SElinux saves us the headache of having to worry about the proper modules being used. The command provided is for a vnc install without any kind of DE or WM
+	(chroot)# apt-get install dbus ssh xorg tightvncserver dialog
+	
+This next sections can be skipped if your not doing a vnc install.
+
+Edit /etc/ssh/sshd_config with your favorite text editor and add the line "X11UseLocalhost yes" to it. 
+Start the dbus service and run vncserver to perform a sanity check.
+	(chroot)# service dbus start
+	(chroot)# vncserver
+Connect to the vnc server via a android app or another device. Nothing should be displayed unless you installed a DE or WM
+Stop the vnc server so it can be run again later without issues
+	(chroot)# vncserver -kill :1
+
+Install selinux-basics so that the linux system can exsist in a selinux envrioment. Important to install anythinig you need now as apt-get can be weird outside of the chroot
+	(chroot)# apt-get install selinux-basics
+Exit the chroot and reboot the phone now that everything is done
+
+Use the next sections to resetup the root tree or use it to make a shell script that does it for you
+
+remount root as readwrite, make a directory to mount the sdcard too, and mount the sdcard. Leave root as readwrite for now
+	# mount -o remount,rw /
+	# mkdir /target
+	# mount -t ext4 -o exec,suid,dev /dev/block/mmcblk1p1 /target
+
+Move the entitre linux tree up one directory. This is possible because android isolates most of its linux system to /system.
+	# export ROOT=/target
+ 	# rm /etc
+ 	# rm -r /root
+ 	# ln -s $ROOT/bin /bin
+ 	# ln -s $ROOT/etc /etc
+	# ln -s /proc/mounts /etc/mtab
+ 	# ln -s $ROOT/lib /lib
+ 	# ln -s $ROOT/home /home
+	# ln -s $ROOT/opt /opt
+	# ln -s $ROOT/root /root
+	# ln -s $ROOT/run /run
+	# ln -s $ROOT/usr /usr
+	# ln -s $ROOT/var /var
+	# mkdir /tmp
+	# mount -t tmpfs tmpfs /tmp
+	# cp /sbin/* $ROOT/sbin/
+	# rm -r /sbin
+	# ln -s $ROOT/sbin /bin
+Root tree is now complete and you can now enter the root system with a simple command
+	# /lib/ld-linux-*.so* /bin/bash -l
+
+A few things are needed to properly setup the linux envrioment. 
+	(linux)# unset LD_PRELOAD
+	(linux)# export TMPDIR=/tmp
+	(linux)# export LD_LIBRARY_PATH=/lib:/lib/arm-linux-gnueabi:/lib/arm-linux-gnueabihf:/usr/lib:/usr/lib/arm-linux-gnueabi:/usr/lib/arm-linux-gnueabihf
+	(linux)# export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
+Everything you now be mostly working. Things like reboot are known to not work. Have to use the android power menu to reboot.
