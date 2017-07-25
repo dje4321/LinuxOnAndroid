@@ -1,0 +1,7 @@
+#This file can be used to enter the linux system with "bash -l" or just run commands directly. 
+
+export LD_LIBRARY_PATH=/lib:/lib/arm-linux-gnueabi:/lib/arm-linux-gnueabihf:/usr/lib:/usr/lib/arm-linux-gnueabi:/usr/lib/arm-linux-gnueabihf
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
+unset LD_PRELOAD ANDROID_PROPERTY_WORKSPACE SYSTEMSERVERCLASSPATH ANDROID_STORAGE EXTERNAL_STORAGE ANDROID_SOCKET_adbd ASEC_MOUNTPOINT BOOTCLASSPATH ANDROID_ASSETS ANDROID_BOOTLOGO ANDROID_ROOT ANDROID_DATA
+
+/lib/ld-linux-*.so* /bin/bash -c "$*"
