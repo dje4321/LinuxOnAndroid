@@ -81,7 +81,7 @@ Move the entitre linux tree up one directory. This is possible because android i
 	# mount -t tmpfs tmpfs /tmp
 	# cp /sbin/* $ROOT/sbin/
 	# rm -r /sbin
-	# ln -s $ROOT/sbin /bin
+	# ln -s $ROOT/sbin /sbin
 Root tree is now complete and you can now enter the root system with a simple command
 	# /lib/ld-linux-*.so* /bin/bash -l
 
